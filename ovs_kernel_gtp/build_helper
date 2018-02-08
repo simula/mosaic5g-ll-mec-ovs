@@ -1,0 +1,98 @@
+SUPPORTED_KERNEL_VERSION="4.9.0"
+
+SUDO='sudo -S -E'
+
+###############################
+## echo and  family
+###############################
+black='\E[30m'
+red='\E[31m'
+green='\E[32m'
+yellow='\E[33m'
+blue='\E[1;34m'
+magenta='\E[35m'
+cyan='\E[36m'
+white='\E[37m'
+reset_color='\E[00m'
+COLORIZE=1
+
+#-------------------------------------------------------------------------------
+cecho()  {
+    # Color-echo
+    # arg1 = message
+    # arg2 = color
+    local default_msg="No Message."
+    message=${1:-$default_msg}
+    color=${2:-$green}
+    [ "$COLORIZE" = "1" ] && message="$color$message$reset_color"
+    echo -e "$message"
+    return
+}
+
+echo_error()   { cecho "$*" $red          ;}
+echo_fatal()   { cecho "$*" $red; exit -1 ;}
+echo_warning() { cecho "$*" $yellow       ;}
+echo_success() { cecho "$*" $green        ;}
+echo_info()    { cecho "$*" $blue         ;}
+
+install_ovs_from_source(){
+  if [ $1 -eq 0 ]; then
+    OPTION=""
+    read -p "Do you want to install Open vSwitch patched? <y/N> " prompt
+  else
+    prompt='y'
+    OPTION="-y"
+  fi
+  
+  if [[ $prompt =~ [yY](es)* ]]
+  then
+    # optional but recommended for secure connection towards controller
+    $SUDO apt-get install $OPTION libssl-dev libcap-ng-dev python-pip
+
+    # required by ovs
+    $SUDO pip install six
+
+    $SUDO rm -rf /tmp/gtp
+    mkdir /tmp/gtp
+    cd /tmp/gtp
+    git clone https://gitlab.eurecom.fr/oai/openair-cn-extras.git
+
+    cd openair-cn-extras/linux-4.9.0-gtp-module/
+    make
+    $SUDO make install
+    $SUDO modprobe udp_tunnel
+    $SUDO modprobe ip6_udp_tunnel
+    $SUDO modprobe gtp
+
+    #git_username=`git config --get user.name`
+    #if [ "$git_username" == "" ]; then
+    #  echo "You haven't configured your Git yet. Please, provide a name and e-mail address."
+    #  echo -n 'Name:' 
+    #  read git_username
+    #  echo -n 'E-mail:' 
+    #  read git_email
+    #  git config --global user.name "$git_username"
+    #  git config --global user.email "$git_email"
+    #fi
+
+    $SUDO rm -rf /tmp/ovs
+    cd /tmp
+    git clone https://github.com/openvswitch/ovs.git
+    cd ovs
+    git checkout 31b88c97512b5dca9f1f6f73bb33292618eee88a
+    git am < /tmp/gtp/openair-cn-extras/ovs/0001-datapath-GPRS-Tunneling-Protocol-GTP-support.patch
+    git am < /tmp/gtp/openair-cn-extras/ovs/0002-userspace-GPRS-Tunneling-Protocol-GTP-support.patch
+
+    ./boot.sh
+    ./configure --with-linux=/lib/modules/`uname -r`/build
+    make -j`nproc`
+    cat /tmp/gtp/openair-cn-extras/linux-4.9.0-gtp-module/Module.symvers >> datapath/linux/Module.symvers
+    make
+    $SUDO make modules_install  # this overwrites openvswitch.ko, vport.ko, vport-gtp.ko, etc.
+    $SUDO make install
+    $SUDO mkdir -p /usr/local/etc/openvswitch
+    $SUDO mkdir -p /usr/local/var/run/openvswitch
+    $SUDO ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
+  fi
+}
+

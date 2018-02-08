@@ -1,0 +1,48 @@
+From c822aaf6bbb7b18b1c431ebaa5a1f062a905120d Mon Sep 17 00:00:00 2001
+From: Anta Huang <anta.huang@eurecom.fr>
+Date: Sat, 8 Apr 2017 13:38:45 +0200
+Subject: [PATCH 3/3] Fix incorrect Ethernet header when receiving GTP packet
+
+---
+ datapath/linux/compat/gtp.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/datapath/linux/compat/gtp.c b/datapath/linux/compat/gtp.c
+index daf3010..d27a3f9 100644
+--- a/datapath/linux/compat/gtp.c
++++ b/datapath/linux/compat/gtp.c
+@@ -220,6 +220,7 @@ static int gtp_rcv(struct sock *sk, struct sk_buff *skb)
+ #endif
+     __be64 key;
+     struct ethhdr *ethh;
++    struct ethhdr *test;
+     __be16 protocol;
+ 
+     dev = rcu_dereference_sk_user_data(sk);
+@@ -255,10 +256,21 @@ static int gtp_rcv(struct sock *sk, struct sk_buff *skb)
+     skb->protocol = protocol;
+ 
+     /* Add Ethernet header */
++    test = (struct ethhdr *)skb_mac_header(skb);
+     ethh = (struct ethhdr *)skb_push(skb, ETH_HLEN);
+     memset(ethh, 0, ETH_HLEN);
+-    ethh->h_dest[0] = 0x06;
+-    ethh->h_source[0] = 0x06;
++    ethh->h_dest[0] = test->h_dest[0];
++    ethh->h_dest[1] = test->h_dest[1];
++    ethh->h_dest[2] = test->h_dest[2];
++    ethh->h_dest[3] = test->h_dest[3];
++    ethh->h_dest[4] = test->h_dest[4];
++    ethh->h_dest[5] = test->h_dest[5];
++    ethh->h_source[0] = test->h_source[0];
++    ethh->h_source[1] = test->h_source[1];
++    ethh->h_source[2] = test->h_source[2];
++    ethh->h_source[3] = test->h_source[3];
++    ethh->h_source[4] = test->h_source[4];
++    ethh->h_source[5] = test->h_source[5];
+     ethh->h_proto = protocol;
+ 
+     ovs_ip_tunnel_rcv(dev, skb, tun_dst);
+-- 
+2.7.4
+
