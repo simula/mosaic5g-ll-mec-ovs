@@ -1,4 +1,5 @@
-source build_helper
+#!/bin/bash
+source ./build_helper
 
 function main()
 {
