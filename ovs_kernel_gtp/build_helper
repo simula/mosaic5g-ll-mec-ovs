@@ -1,5 +1,9 @@
 SUPPORTED_KERNEL_VERSION="4.9.0"
 
+export LC_ALL="en_US.UTF-8"
+export LANGUAGE="en_UE.UTF-8"
+sudo locale-gen
+
 SUDO='sudo -S -E'
 
 ###############################
@@ -46,11 +50,13 @@ install_ovs_from_source(){
   
   if [[ $prompt =~ [yY](es)* ]]
   then
+    $SUDO apt-get update 
     # optional but recommended for secure connection towards controller
-    $SUDO apt-get install $OPTION libssl-dev libcap-ng-dev python-pip
+    $SUDO apt-get install $OPTION libssl-dev autoconf libtool libcap-ng-dev python python-pip
 
     # required by ovs
     $SUDO pip install six
+    pushd . 
 
     $SUDO rm -rf /tmp/gtp
     mkdir /tmp/gtp
@@ -64,16 +70,16 @@ install_ovs_from_source(){
     $SUDO modprobe ip6_udp_tunnel
     $SUDO modprobe gtp
 
-    #git_username=`git config --get user.name`
-    #if [ "$git_username" == "" ]; then
-    #  echo "You haven't configured your Git yet. Please, provide a name and e-mail address."
-    #  echo -n 'Name:' 
-    #  read git_username
-    #  echo -n 'E-mail:' 
-    #  read git_email
-    #  git config --global user.name "$git_username"
-    #  git config --global user.email "$git_email"
-    #fi
+    git_username=`git config --get user.name`
+    if [ "$git_username" == "" ]; then
+      echo "You haven't configured your Git yet. Please, provide a name and e-mail address."
+      echo -n 'Name:' 
+      read git_username
+      echo -n 'E-mail:' 
+      read git_email
+      git config --global user.name "$git_username"
+      git config --global user.email "$git_email"
+    fi
 
     $SUDO rm -rf /tmp/ovs
     cd /tmp
@@ -90,9 +96,13 @@ install_ovs_from_source(){
     make
     $SUDO make modules_install  # this overwrites openvswitch.ko, vport.ko, vport-gtp.ko, etc.
     $SUDO make install
+    $SUDO rm -rf /usr/local/etc/openvswitch
+    $SUDO rm -rf /usr/local/var/run/openvswitch
     $SUDO mkdir -p /usr/local/etc/openvswitch
     $SUDO mkdir -p /usr/local/var/run/openvswitch
     $SUDO ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
+
+    popd 	
   fi
 }
 
