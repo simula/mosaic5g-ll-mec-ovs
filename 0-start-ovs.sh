@@ -13,4 +13,4 @@ ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
              --bootstrap-ca-cert=db:Open_vSwitch,SSL,ca_cert \
              --pidfile --detach
 ovs-vsctl --no-wait init
-ovs-vswitchd --pidfile --detach --log-file=/home/grillon/log
+ovs-vswitchd --pidfile --detach --log-file=/tmp/log
