@@ -18,5 +18,6 @@ sleep 1
 ifconfig $EXT_INTERFACE 0
 sleep 1
 ifconfig edge $EXT_IP
-
+ovs-vsctl set bridge edge datapath_type=netdev
 ovs-vsctl set-controller edge tcp:$CTRL_IP:$CTRL_PORT
+
